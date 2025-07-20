@@ -1,7 +1,7 @@
 import prisma from "../utils/prisma.js";
 import cloudinary from "../utils/cloudinary.js";
 import streamifier from "streamifier";
-import AppError from "../utils/appError.js";
+import AppError from "../utils/AppError.js";
 
 
 // Helper function to upload buffer to Cloudinary via stream
