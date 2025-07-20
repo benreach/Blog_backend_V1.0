@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum UserType {
+  STUDENT
+  TEACHER
+  VISITOR
+  WORKER
+  USER
+  ADMIN
+}
+
+enum Category {
+  NOVEL
+  MUSIC
+}
+
+// User Model
+
+model User {
+  id          String    @id @default(uuid())
+  firstName   String?
+  lastName    String?
+  displayName String
+  birthDate   DateTime?
+  profileIcon String?
+  gender      Gender?
+  userType    UserType? @default(USER)
+  email       String    @unique
+  password    String
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+
+  playlists    Playlist[]
+  comments     Comment[]
+  likes        Like[]
+  adminProfile AdminProfile?
+
+  lastProfileUpdate DateTime?
+
+  @@index([displayName])
+}
+
+// Admin Profile Model
+
+model AdminProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  coverImage     String?
+  profileIcon    String?
+  description    String?
+  facebook       String?
+  twitter        String?
+  instagram      String?
+  youtube        String?
+  linkedIn       String?
+  website        String?
+  followers      Int       @default(0)
+  featuredPostId String?   @unique
+  featuredPost   Post?     @relation("FeaturedPost", fields: [featuredPostId], references: [id])
+
+  pinnedPostId String? @unique
+  pinnedPost   Post?   @relation("PinnedPost", fields: [pinnedPostId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Post Model (for novels, blogs, announcements)
+
+model Post {
+  id         String  @id @default(uuid())
+  title      String
+  description String?
+  contentUrl String?
+
+  genreId  String? // only for novel posts
+  genre    Genre?   @relation(fields: [genreId], references: [id])
+  category Category @default(NOVEL)
+
+  coverImageUrl String?
+  mainImageUrl  String?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  images    PostImage[]
+  playlists Playlist[]
+  comments  Comment[]
+  likes     Like[]
+
+  featuredInAdminProfile AdminProfile? @relation("FeaturedPost")
+  pinnedInAdminProfile   AdminProfile? @relation("PinnedPost")
+
+  @@index([createdAt])
+}
+
+// Genre Model (Novel subcategories)
+
+model Genre {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  posts     Post[]
+  createdAt DateTime @default(now())
+}
+
+
+// Music Model (for song streaming)
+
+model Music {
+  id         String   @id @default(uuid())
+  title      String
+  artist     String
+  album      String?
+  genre      String?
+  url        String?
+  lyrics     String?
+  coverImage String?
+  createdAt  DateTime @default(now())
+
+  likes     Like[] // <-- add this line
+  comments  Comment[] // <-- add this line if you want back references for comments too
+  playlists Playlist[] // if you want playlist references here
+}
+
+// PostImage Model
+
+model PostImage {
+  id        String   @id @default(uuid())
+  postId    String
+  imageUrl  String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id])
+}
+
+// Playlist Model
+
+model Playlist {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String?
+  musicId   String?
+  createdAt DateTime @default(now())
+
+  post  Post?  @relation(fields: [postId], references: [id])
+  music Music? @relation(fields: [musicId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, postId])
+  @@unique([userId, musicId])
+}
+
+// Comment Model
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String?
+  imageUrl  String?
+  userId    String
+  postId    String?
+  musicId   String?
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id])
+  post  Post?  @relation(fields: [postId], references: [id])
+  music Music? @relation(fields: [musicId], references: [id])
+}
+
+// Like Model
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String?
+  musicId   String?
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id])
+  post  Post?  @relation(fields: [postId], references: [id])
+  music Music? @relation(fields: [musicId], references: [id])
+
+  @@unique([userId, postId, musicId])
+}
+
+// Site Stats Model
+
+model SiteStats {
+  id            String   @id @default("global")
+  totalUsers    Int
+  totalPosts    Int
+  totalMusic    Int
+  totalComments Int
+  totalLikes    Int
+  createdAt     DateTime @default(now())
+}
+
+// Announcement Model
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Banner Model
+
+model Banner {
+  id        String   @id @default(uuid())
+  imageUrl  String
+  linkUrl   String?
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
