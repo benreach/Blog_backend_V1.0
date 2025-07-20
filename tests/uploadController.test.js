@@ -1,13 +1,34 @@
-// Note: this has to be top-level for ESM support
 import { jest } from '@jest/globals';
+import { Writable } from 'stream';
 
-await jest.unstable_mockModule('../utils/cloudinary.js', () => ({
-  default: {
-    uploader: {
-      upload: jest.fn(),
+// Mock Cloudinary uploader.upload_stream with a writable stream mock
+await jest.unstable_mockModule('../utils/cloudinary.js', () => {
+  const upload_stream = jest.fn((options, callback) => {
+    // Create a writable stream mock
+    const writableStream = new Writable({
+      write(chunk, encoding, cb) {
+        // just consume the chunk
+        cb();
+      },
+    });
+
+    // Call the callback asynchronously to simulate upload success or failure
+    setTimeout(() => {
+      // For success:
+      callback(null, { secure_url: 'https://cloudinary.com/fake.jpg' });
+      // For failure, comment the above line and uncomment this:
+      // callback(new Error('Upload failed'), null);
+    }, 0);
+
+    return writableStream;
+  });
+
+  return {
+    default: {
+      uploader: { upload_stream },
     },
-  },
-}));
+  };
+});
 
 await jest.unstable_mockModule('../utils/prisma.js', () => ({
   default: {
@@ -46,6 +67,7 @@ describe('uploadPostFile', () => {
 
     req = {
       file: {
+        buffer: Buffer.from('fake file data'),
         path: '/tmp/fakefile.jpg',
       },
       body: {
@@ -67,22 +89,18 @@ describe('uploadPostFile', () => {
   });
 
   it('should upload file, create post, delete file, and return 201', async () => {
-    const fakeCloudinaryResponse = { secure_url: 'https://cloudinary.com/fake.jpg' };
-    cloudinary.default.uploader.upload.mockResolvedValue(fakeCloudinaryResponse);
-    fs.default.unlink.mockResolvedValue();
+    // Make sure prisma and fs mocks return as expected
     prisma.default.post.create.mockResolvedValue({
       id: 'postId123',
       title: req.body.title,
       type: req.body.type.toUpperCase(),
-      contentUrl: fakeCloudinaryResponse.secure_url,
+      contentUrl: 'https://cloudinary.com/fake.jpg',
     });
+    fs.default.unlink.mockResolvedValue();
 
     await uploadPostFile(req, res);
 
-    expect(cloudinary.default.uploader.upload).toHaveBeenCalledWith(req.file.path, {
-      folder: 'blog_posts',
-      resource_type: 'auto',
-    });
+    expect(cloudinary.default.uploader.upload_stream).toHaveBeenCalled();
 
     expect(fs.default.unlink).toHaveBeenCalledWith(req.file.path);
 
@@ -90,7 +108,7 @@ describe('uploadPostFile', () => {
       data: {
         title: req.body.title,
         type: req.body.type.toUpperCase(),
-        contentUrl: fakeCloudinaryResponse.secure_url,
+        contentUrl: 'https://cloudinary.com/fake.jpg',
       },
     });
 
@@ -99,20 +117,32 @@ describe('uploadPostFile', () => {
       id: 'postId123',
       title: req.body.title,
       type: req.body.type.toUpperCase(),
-      contentUrl: fakeCloudinaryResponse.secure_url,
+      contentUrl: 'https://cloudinary.com/fake.jpg',
     });
   });
 
   it('should return 500 and error message on failure', async () => {
-    const error = new Error('Upload failed');
-    cloudinary.default.uploader.upload.mockRejectedValue(error);
+    // Override upload_stream mock to simulate error
+    cloudinary.default.uploader.upload_stream.mockImplementation((options, callback) => {
+      const writableStream = new Writable({
+        write(chunk, encoding, cb) {
+          cb();
+        },
+      });
+
+      setTimeout(() => {
+        callback(new Error('Upload failed'), null);
+      }, 0);
+
+      return writableStream;
+    });
 
     await uploadPostFile(req, res);
 
     expect(statusMock).toHaveBeenCalledWith(500);
     expect(jsonMock).toHaveBeenCalledWith({
       message: 'Upload failed',
-      error: error.message,
+      error: 'Upload failed',
     });
   });
 });

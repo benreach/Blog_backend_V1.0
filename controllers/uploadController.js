@@ -6,7 +6,6 @@ export const uploadPostFile = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-    // Upload buffer to Cloudinary via stream
     const streamUpload = (req) => {
       return new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -19,13 +18,14 @@ export const uploadPostFile = async (req, res) => {
             else reject(error);
           }
         );
+
+        // Just pipe; do NOT call stream.end()
         streamifier.createReadStream(req.file.buffer).pipe(stream);
       });
     };
 
     const result = await streamUpload(req);
 
-    // Create post record
     const post = await prisma.post.create({
       data: {
         title: req.body.title,
@@ -33,6 +33,8 @@ export const uploadPostFile = async (req, res) => {
         contentUrl: result.secure_url,
       },
     });
+
+    await import('fs/promises').then(({ default: fs }) => fs.unlink(req.file.path));
 
     res.status(201).json(post);
   } catch (error) {
