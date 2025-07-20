@@ -64,6 +64,10 @@ app.use('/api/music', musicRoutes);
 
 app.use(errorHandler);
 
+app.get('/', (req, res) => {
+  res.send('Welcome to the backend server!');
+});
+
 
 const PORT = config.port || 6000;
 
