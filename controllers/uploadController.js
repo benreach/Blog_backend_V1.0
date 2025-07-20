@@ -1,19 +1,29 @@
 import cloudinary from '../utils/cloudinary.js';
 import prisma from '../utils/prisma.js';
-import fs from 'fs/promises';
+import streamifier from 'streamifier';
 
 export const uploadPostFile = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'blog_posts',
-      resource_type: 'auto',
-    });
+    // Upload buffer to Cloudinary via stream
+    const streamUpload = (req) => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'blog_posts',
+            resource_type: 'auto',
+          },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        streamifier.createReadStream(req.file.buffer).pipe(stream);
+      });
+    };
 
-    // Clean up temp file after upload
-    await fs.unlink(req.file.path);
+    const result = await streamUpload(req);
 
     // Create post record
     const post = await prisma.post.create({

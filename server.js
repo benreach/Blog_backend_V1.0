@@ -14,15 +14,14 @@ import uploadRoutes from "./routes/uploadRoute.js";
 import commentsRouter from './routes/commentRoutes.js';
 import likesRoutes from './routes/likeRoutes.js';
 import adminRoutes from './routes/adminRoute.js';
-import siteStatsRoutes from "./routes/siteStats.route.js"
+import siteStatsRoutes from "./routes/siteStats.route.js";
 import announcementRoutes from './routes/announcementRoute.js';
 import bannerRoutes from './routes/bannerRoutes.js';
 import musicRoutes from './routes/musicRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 
-
-
 dotenv.config();
+
 const app = express();
 
 // Basic security headers
@@ -68,11 +67,6 @@ app.get('/', (req, res) => {
   res.send('Welcome to the backend server!');
 });
 
-
-const PORT = config.port || 6000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// REMOVE app.listen() here for Vercel compatibility
 
 export default app;
